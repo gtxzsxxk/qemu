@@ -217,6 +217,8 @@
 /* Supervisor Protection and Translation */
 #define CSR_SPTBR           0x180
 #define CSR_SATP            0x180
+/* Supervisor Address Midgard Translation */
+#define CSR_SAMT		0x5a0
 
 /* Supervisor-Level Window to Indirectly Accessed Registers (AIA) */
 #define CSR_SISELECT        0x150

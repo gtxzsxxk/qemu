@@ -3402,6 +3402,29 @@ static RISCVException write_satp(CPURISCVState *env, int csrno,
     return RISCV_EXCP_NONE;
 }
 
+/* Supervisor Address Midgard Translation */
+static RISCVException read_samt(CPURISCVState *env, int csrno,
+                                target_ulong *val)
+{
+    if (!riscv_cpu_cfg(env)->mmu) {
+        *val = 0;
+        return RISCV_EXCP_NONE;
+    }
+    *val = env->samt;
+    return RISCV_EXCP_NONE;
+}
+
+static RISCVException write_samt(CPURISCVState *env, int csrno,
+                                 target_ulong val)
+{
+    if (!riscv_cpu_cfg(env)->mmu) {
+        return RISCV_EXCP_NONE;
+    }
+
+    env->samt = val;
+    return RISCV_EXCP_NONE;
+}
+
 static RISCVException read_vstopi(CPURISCVState *env, int csrno,
                                   target_ulong *val)
 {
@@ -5182,6 +5205,8 @@ riscv_csr_operations csr_ops[CSR_TABLE_SIZE] = {
 
     /* Supervisor Protection and Translation */
     [CSR_SATP]     = { "satp",     satp, read_satp,     write_satp     },
+    /* Supervisor Address Midgard Translation */
+    [CSR_SAMT]     = { "samt",     any, read_samt,     write_samt     },
 
     /* Supervisor-Level Window to Indirectly Accessed Registers (AIA) */
     [CSR_SISELECT]   = { "siselect",   aia_smode, NULL, NULL, rmw_xiselect },
