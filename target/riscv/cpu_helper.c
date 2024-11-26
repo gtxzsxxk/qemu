@@ -17,6 +17,10 @@
  * this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <stdint.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include "exec/hwaddr.h"
 #include "qemu/osdep.h"
 #include "qemu/log.h"
 #include "qemu/main-loop.h"
@@ -1433,6 +1437,7 @@ bool riscv_cpu_tlb_fill(CPUState *cs, vaddr address, int size,
                         MMUAccessType access_type, int mmu_idx,
                         bool probe, uintptr_t retaddr)
 {
+    static FILE *fp = NULL;
     RISCVCPU *cpu = RISCV_CPU(cs);
     CPURISCVState *env = &cpu->env;
     vaddr im_address;
@@ -1446,6 +1451,10 @@ bool riscv_cpu_tlb_fill(CPUState *cs, vaddr address, int size,
     int mode = mmuidx_priv(mmu_idx);
     /* default TLB page size */
     hwaddr tlb_size = TARGET_PAGE_SIZE;
+
+    if(fp == NULL) {
+        fp = fopen("tlb_fill_hit.log", "w");
+    }
 
     env->guest_phys_fault_addr = 0;
 
@@ -1541,6 +1550,13 @@ bool riscv_cpu_tlb_fill(CPUState *cs, vaddr address, int size,
 
     if (ret == TRANSLATE_PMP_FAIL) {
         pmp_violation = true;
+    }
+
+    fprintf(fp, "%016lx %016lx %d\n", address, pa, ret);
+    fflush(fp);
+
+    if((address >> 52) == 0xff2) {
+        fprintf(fp, "vmalloc/ioremap space\n");
     }
 
     if (ret == TRANSLATE_SUCCESS) {
