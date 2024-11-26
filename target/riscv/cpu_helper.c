@@ -861,6 +861,58 @@ static int get_physical_address_pmp(CPURISCVState *env, int *prot, hwaddr addr,
     return TRANSLATE_SUCCESS;
 }
 
+#define MIDGARD_B_TREE_GRADE	4
+
+struct midgard_key {
+    /* 以页对齐 */
+	uint64_t base;
+	uint64_t bound;
+	uint64_t offset;
+	uint8_t prot;
+};
+
+struct midgard_node {
+	struct midgard_key keys[MIDGARD_B_TREE_GRADE - 1];
+	struct midgard_node *children[MIDGARD_B_TREE_GRADE];
+	int key_cnt;
+	int is_leaf;
+};
+
+static struct midgard_node search(CPUState *cs, hwaddr midgard_root, uintptr_t vaddr, int *pos) {
+    MemTxResult res;
+	int i = 0;
+
+    struct midgard_node root;
+    uint32_t *root_filler = (uint32_t *)&root;
+    for (i = 0; i < sizeof(root); i += 4) {
+        *root_filler = address_space_ldl(cs->as, midgard_root + i, MEMTXATTRS_UNSPECIFIED, &res);
+        if (res != MEMTX_OK) {
+            *pos = -1;
+            return root;
+        }
+        root_filler++;
+    }
+    i = 0;
+
+    /* 这里需要确定一下 */
+	while (i < root.key_cnt && !(vaddr >= root.keys[i].base && vaddr < root.keys[i].bound)) {
+		i++;
+	}
+
+    /* 这里应该判断是否在 VMA 内，而不是根据 va_base 查找 */
+	if (i < root.key_cnt && vaddr >= root.keys[i].base && vaddr < root.keys[i].bound) {
+		*pos = i;
+		return root;
+	}
+
+	if (root.is_leaf) {
+        *pos = -1;
+		return root;
+	}
+
+	return search(cs, (uint64_t)root.children[i], vaddr, pos);
+}
+
 /*
  * get_physical_address - get the physical address for this virtual address
  *
@@ -923,6 +975,20 @@ static int get_physical_address(CPURISCVState *env, hwaddr *physical,
     }
 
     *ret_prot = 0;
+    CPUState *cs = env_cpu(env);
+
+    /* midgard */
+    if(env->samt) {
+        /* 查找 b 树 */
+        int pos = -1;
+        struct midgard_node node = search(cs, env->samt, addr, &pos);
+        if(pos == -1) {
+            return TRANSLATE_FAIL;
+        }
+        struct midgard_key key = node.keys[pos];
+        /* 进入 midgard 空间 */
+        addr += key.offset;
+    }
 
     hwaddr base;
     int levels, ptidxbits, ptesize, vm, widened;
@@ -974,7 +1040,6 @@ static int get_physical_address(CPURISCVState *env, hwaddr *physical,
       g_assert_not_reached();
     }
 
-    CPUState *cs = env_cpu(env);
     int va_bits = PGSHIFT + levels * ptidxbits + widened;
     int sxlen = 16 << riscv_cpu_sxl(env);
     int sxlen_bytes = sxlen / 8;
