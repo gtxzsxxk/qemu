@@ -895,7 +895,7 @@ static struct midgard_node search(CPUState *cs, hwaddr midgard_root, uintptr_t v
     i = 0;
 
     /* 这里需要确定一下 */
-	while (i < root.key_cnt && !(vaddr >= root.keys[i].base && vaddr < root.keys[i].bound)) {
+	while (i < root.key_cnt && vaddr > root.keys[i].bound) {
 		i++;
 	}
 
