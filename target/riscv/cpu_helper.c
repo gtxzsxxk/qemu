@@ -916,6 +916,14 @@ static struct midgard_node search(CPUState *cs, hwaddr midgard_root, uintptr_t v
 	return search(cs, (uint64_t)root.phys_children[i], vaddr, pos);
 }
 
+static int midgard_filter(vaddr addr) {
+    if (addr >= 0xff1bfffffea00000UL && addr <= 0xff1bfffffeffffffUL ) {
+        return 1;
+    }
+
+    return 0;
+}
+
 /*
  * get_physical_address - get the physical address for this virtual address
  *
@@ -981,7 +989,7 @@ static int get_physical_address(CPURISCVState *env, hwaddr *physical,
     CPUState *cs = env_cpu(env);
 
     /* midgard */
-    if(env->samt) {
+    if(env->samt && !midgard_filter(addr)) {
         /* 查找 b 树 */
         int pos = -1;
         struct midgard_node node = search(cs, env->samt, addr, &pos);
