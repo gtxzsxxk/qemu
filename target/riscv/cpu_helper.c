@@ -874,8 +874,11 @@ struct midgard_key {
 struct midgard_node {
 	struct midgard_key keys[MIDGARD_B_TREE_GRADE - 1];
 	struct midgard_node *children[MIDGARD_B_TREE_GRADE];
-	int key_cnt;
-	int is_leaf;
+	uint8_t key_cnt;
+	uint8_t is_leaf;
+
+	/* 用于给处理器看的，通过 sanitize 刷新 */
+	uint64_t *phys_children[MIDGARD_B_TREE_GRADE];
 };
 
 static struct midgard_node search(CPUState *cs, hwaddr midgard_root, uintptr_t vaddr, int *pos) {
@@ -910,7 +913,7 @@ static struct midgard_node search(CPUState *cs, hwaddr midgard_root, uintptr_t v
 		return root;
 	}
 
-	return search(cs, (uint64_t)root.children[i], vaddr, pos);
+	return search(cs, (uint64_t)root.phys_children[i], vaddr, pos);
 }
 
 /*
